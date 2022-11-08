@@ -87,11 +87,13 @@ func main() {
 	var port = flag.Int("p", 5555, "Set port name")
 	var chunksize = flag.Int("c", 100, "Set chunksize name")
 	var server = flag.String("s", "10.199.100.100", "Set server ")
-	file := flag.NewFlagSet("file", flag.ExitOnError)
-	filename := file.String("n", "", "Set text file ")
+	//file := flag.NewFlagSet("file", flag.ExitOnError)
+	//filename := file.String("n", "", "Set text file ")
+	filename := flag.String("f", "", "Set text file ")
 
-	raw := flag.NewFlagSet("raw", flag.ExitOnError)
-	sizeraw := raw.Int("l", 0, "Set size length")
+	//raw := flag.NewFlagSet("raw", flag.ExitOnError)
+	//sizeraw := raw.Int("l", 0, "Set size length")
+	sizeraw := flag.Int("l", 0, "Set size length")
 
 	flag.Parse()
 
@@ -131,7 +133,7 @@ func main() {
 			os.Exit(4)
 		}
 
-		log.Printf("Sended %d bytes", i)
+		log.Printf("Chunk #%d Sended %d bytes", index, i)
 	}
 
 }
