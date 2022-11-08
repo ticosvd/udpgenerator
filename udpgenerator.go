@@ -15,6 +15,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"time"
 )
 
 type Data struct {
@@ -23,6 +24,7 @@ type Data struct {
 	typeoperation string
 	filename      string
 	rawlendata    int
+	connect       string
 }
 
 func (d *Data) SplitData(adata *[]byte) error {
@@ -83,6 +85,50 @@ func (d *Data) ReadRawFile() ([][]byte, error) {
 
 }
 
+func (d *Data) CreateConnect(CONNECT string) (*net.UDPConn, error) {
+
+	s, err := net.ResolveUDPAddr("udp4", CONNECT)
+	c, err := net.DialUDP("udp4", nil, s)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+
+	log.Printf("The UDP server is %s\n", c.RemoteAddr().String())
+	return c, nil
+
+}
+
+func (d *Data) SendInfiniteTraffic() error {
+
+	c, err := d.CreateConnect(d.connect)
+	if err != nil {
+		return errors.New("Can't create connect")
+
+	}
+	defer c.Close()
+	chunks, err := d.RandomData(d.chunksize)
+	if err != nil {
+		log.Println(err)
+		os.Exit(0)
+
+	}
+	d.data = append(d.data, chunks)
+	index := 0
+	for {
+		index++
+
+		i, err := c.Write(d.data[0])
+		time.Sleep(10 * time.Microsecond)
+
+		if err != nil {
+			log.Println(err)
+			os.Exit(4)
+		}
+		log.Printf("Chunk #%d Sended %d bytes", index, i)
+	}
+}
+
 func main() {
 	var port = flag.Int("p", 5555, "Set port name")
 	var chunksize = flag.Int("c", 100, "Set chunksize name")
@@ -94,46 +140,57 @@ func main() {
 	//raw := flag.NewFlagSet("raw", flag.ExitOnError)
 	//sizeraw := raw.Int("l", 0, "Set size length")
 	sizeraw := flag.Int("l", 0, "Set size length")
+	threads := flag.Int("t", 1, "Set threads")
 
 	flag.Parse()
 
-	log.Println("Currer size raw", *sizeraw)
+	log.Println("Currer size raw and threads", *sizeraw, threads)
 	data := Data{}
 
+	data.connect = fmt.Sprintf("%s:%d", *server, *port)
 	data.chunksize = *chunksize
+	if *threads == 1 {
+		if *sizeraw > 0 {
+			data.rawlendata = *sizeraw
 
-	CONNECT := fmt.Sprintf("%s:%d", *server, *port)
-	log.Println(CONNECT)
-
-	s, err := net.ResolveUDPAddr("udp4", CONNECT)
-	c, err := net.DialUDP("udp4", nil, s)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	log.Printf("The UDP server is %s\n", c.RemoteAddr().String())
-	defer c.Close()
-	if *sizeraw > 0 {
-		data.rawlendata = *sizeraw
-
-	} else {
-		data.filename = *filename
-	}
-	data.data, err = data.ReadRawFile()
-	if err != nil {
-		log.Println(err)
-	}
-
-	for index := 0; index < len(data.data); index++ {
-		i, err := c.Write(data.data[index])
-
-		if err != nil {
-			log.Println(err)
-			os.Exit(4)
+		} else {
+			data.filename = *filename
 		}
 
-		log.Printf("Chunk #%d Sended %d bytes", index, i)
+		if *sizeraw != -1 {
+			c, err := data.CreateConnect(data.connect)
+			if err != nil {
+				log.Println("Can't create connect")
+				os.Exit(5)
+
+			}
+			defer c.Close()
+			data.data, err = data.ReadRawFile()
+			if err != nil {
+				log.Println(err)
+			}
+
+			for index := 0; index < len(data.data); index++ {
+				i, err := c.Write(data.data[index])
+
+				if err != nil {
+					log.Println(err)
+					os.Exit(4)
+				}
+
+				log.Printf("Chunk #%d Sended %d bytes", index, i)
+			}
+		} else {
+			err := data.SendInfiniteTraffic()
+			if err != nil {
+				log.Panicln(err)
+				os.Exit(5)
+
+			}
+
+		}
+	} else {
+
 	}
 
 }
